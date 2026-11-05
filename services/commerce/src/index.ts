@@ -6,13 +6,15 @@ import { randomUUID } from "node:crypto"
 import { z } from "zod"
 import { prisma } from "../../../packages/database/src/client.js"
 import { assertConfiguredEnv, requireAuth } from "../../../packages/security/src/index.js"
+import paystackRoutes from "./payments.js"
 
 assertConfiguredEnv()
 const app = express()
 app.disable("x-powered-by")
 app.use(helmet())
-app.use(express.json({ limit: "40kb" }))
 app.use(cookieParser())
+app.use("/api/payments", paystackRoutes)
+app.use(express.json({ limit: "40kb" }))
 app.get("/health", (_req, res) => res.json({ service: "commerce", status: "ok" }))
 const orderSchema = z.object({ items: z.array(z.object({ productId: z.string().min(1), variantId: z.string().min(1), quantity: z.number().int().min(1).max(25) })).min(1).max(30), address: z.string().trim().min(5).max(500), deliveryState: z.string().trim().min(2).max(80), paymentMethod: z.enum(["Cash on Delivery", "Bank Transfer"]) })
 const publicStatus = (status: string) => ({ PENDING: "Pending", CONFIRMED: "Confirmed", PROCESSING: "Processing", OUT_FOR_DELIVERY: "Out for Delivery", DELIVERED: "Delivered", CANCELLED: "Cancelled" } as Record<string, string>)[status] ?? status
@@ -56,7 +58,7 @@ app.post("/api/orders", requireAuth, async (req, res, next) => {
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const error = err as Error & { status?: number }
-  if (error.status === 409) return res.status(409).json({ error: error.message })
+  if (error.status && error.status >= 400 && error.status < 600) return res.status(error.status).json({ error: error.message })
   console.error("commerce service error", err)
   return res.status(500).json({ error: "Unable to complete the request" })
 })
