@@ -1,0 +1,51 @@
+{
+  "name": "adeola-spiritual-enterprises-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n gateway,auth,catalog,commerce,admin -c blue,green,yellow,magenta,red \"npm:dev:gateway\" \"npm:dev:auth\" \"npm:dev:catalog\" \"npm:dev:commerce\" \"npm:dev:admin\"",
+    "dev:gateway": "tsx watch services/gateway/src/index.ts",
+    "dev:auth": "tsx watch services/auth/src/index.ts",
+    "dev:catalog": "tsx watch services/catalog/src/index.ts",
+    "dev:commerce": "tsx watch services/commerce/src/index.ts",
+    "dev:admin": "tsx watch services/admin/src/index.ts",
+    "build": "tsc --noEmit",
+    "db:generate": "prisma generate --schema packages/database/prisma/schema.prisma",
+    "db:status": "prisma migrate status --schema packages/database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema packages/database/prisma/schema.prisma",
+    "db:migrate:dev": "prisma migrate dev --schema packages/database/prisma/schema.prisma",
+    "db:seed": "tsx packages/database/prisma/seed.ts",
+    "admin:create": "tsx packages/database/prisma/create-admin.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0",
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "ioredis": "^5.8.2",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.10.0",
+    "concurrently": "^9.2.1",
+    "prisma": "^6.19.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true
+  }
+}

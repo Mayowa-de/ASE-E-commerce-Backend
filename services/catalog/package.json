@@ -1,0 +1,1 @@
+{"name":"@ase/catalog-service","version":"1.0.0","private":true,"type":"module","dependencies":{"@ase/cache":"1.0.0","@ase/database":"1.0.0","@ase/security":"1.0.0"}}

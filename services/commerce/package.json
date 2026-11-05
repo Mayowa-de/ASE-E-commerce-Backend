@@ -1,0 +1,1 @@
+{"name":"@ase/commerce-service","version":"1.0.0","private":true,"type":"module","dependencies":{"@ase/database":"1.0.0","@ase/security":"1.0.0"}}
