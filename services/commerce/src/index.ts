@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser"
 import helmet from "helmet"
 import { randomUUID } from "node:crypto"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "../../../packages/database/src/client.js"
 import { assertConfiguredEnv, requireAuth } from "../../../packages/security/src/index.js"
 import paystackRoutes from "./payments.js"
@@ -38,7 +39,7 @@ app.post("/api/orders", requireAuth, async (req, res, next) => {
     const parsed = orderSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ error: "Check your order details", details: parsed.error.flatten() })
     const deliveryFee = Number(process.env.DELIVERY_FEE_NGN ?? 0)
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const lines: { productId: string; variantId: string; productSlug: string; productName: string; variantSlug: string; variantLabel: string; unitPrice: number; quantity: number }[] = []
       for (const input of parsed.data.items) {
         const product = await tx.product.findFirst({ where: { slug: input.productId, active: true, comingSoon: false }, include: { category: true, variants: { where: { slug: input.variantId } } } })

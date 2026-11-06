@@ -3,6 +3,7 @@ import express from "express"
 import cookieParser from "cookie-parser"
 import helmet from "helmet"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "../../../packages/database/src/client.js"
 import { invalidatePrefix, getJson, setJson } from "../../../packages/cache/src/index.js"
 import { assertConfiguredEnv, requireAuth, requireRole } from "../../../packages/security/src/index.js"
@@ -68,7 +69,7 @@ app.patch("/api/products/:slug", requireAuth, requireRole("ADMIN"), async (req, 
     const category = categorySlug ? await prisma.category.findUnique({ where: { slug: categorySlug } }) : null
     if (categorySlug && !category) return res.status(400).json({ error: "Category not found" })
     const productSlug = String(req.params.slug)
-    const row = await prisma.$transaction(async (tx) => {
+    const row = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const product = await tx.product.update({ where: { slug: productSlug }, data: { ...data, ...(category ? { categoryId: category.id } : {}) } })
       if (variants) {
         const variantSlugs = variants.map((variant) => variant.slug)

@@ -3,6 +3,7 @@ import express from "express"
 import cookieParser from "cookie-parser"
 import helmet from "helmet"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "../../../packages/database/src/client.js"
 import { assertConfiguredEnv, requireAuth, requireRole } from "../../../packages/security/src/index.js"
 
@@ -17,6 +18,7 @@ app.use(requireAuth, requireRole("ADMIN"))
 
 app.get("/dashboard", async (_req, res, next) => {
   try {
+    const recentOrderInclude = { user: { select: { name: true } }, items: { select: { id: true } } } as const
     const [totalOrders, paidRevenue, pendingOrders, activeProducts, lowStockVariants, deliveredOrders, recentOrders, customerCount] = await Promise.all([
       prisma.order.count(),
       prisma.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { total: true } }),
@@ -24,22 +26,27 @@ app.get("/dashboard", async (_req, res, next) => {
       prisma.product.count({ where: { active: true, comingSoon: false } }),
       prisma.productVariant.count({ where: { stock: { lt: Number(process.env.LOW_STOCK_THRESHOLD ?? 5) }, product: { active: true } } }),
       prisma.order.count({ where: { status: "DELIVERED" } }),
-      prisma.order.findMany({ take: 8, orderBy: { createdAt: "desc" }, include: { user: { select: { name: true } }, items: { select: { id: true } } } }),
+      prisma.order.findMany({ take: 8, orderBy: { createdAt: "desc" }, include: recentOrderInclude }),
       prisma.user.count({ where: { role: "CUSTOMER", active: true } }),
     ])
-    return res.json({ totalOrders, revenue: Number(paidRevenue._sum.total ?? 0), pendingOrders, activeProducts, lowStockVariants, deliveredOrders, customerCount, recentOrders: recentOrders.map((order) => ({ id: order.orderNumber, customerName: order.user.name, itemCount: order.items.length, total: Number(order.total), status: order.status, createdAt: order.createdAt })) })
+    type RecentOrder = Prisma.OrderGetPayload<{ include: typeof recentOrderInclude }>
+    return res.json({ totalOrders, revenue: Number(paidRevenue._sum.total ?? 0), pendingOrders, activeProducts, lowStockVariants, deliveredOrders, customerCount, recentOrders: recentOrders.map((order: RecentOrder) => ({ id: order.orderNumber, customerName: order.user.name, itemCount: order.items.length, total: Number(order.total), status: order.status, createdAt: order.createdAt })) })
   } catch (err) { next(err) }
 })
 app.get("/customers", async (_req, res, next) => {
   try {
-    const customers = await prisma.user.findMany({ where: { role: "CUSTOMER" }, select: { id: true, name: true, email: true, phone: true, createdAt: true, _count: { select: { orders: true } } }, orderBy: { createdAt: "desc" } })
-    return res.json({ customers: customers.map(({ _count, ...user }) => ({ ...user, orderCount: _count.orders })) })
+    const customerSelect = { id: true, name: true, email: true, phone: true, createdAt: true, _count: { select: { orders: true } } } as const
+    const customers = await prisma.user.findMany({ where: { role: "CUSTOMER" }, select: customerSelect, orderBy: { createdAt: "desc" } })
+    type CustomerWithOrderCount = Prisma.UserGetPayload<{ select: typeof customerSelect }>
+    return res.json({ customers: customers.map(({ _count, ...user }: CustomerWithOrderCount) => ({ ...user, orderCount: _count.orders })) })
   } catch (err) { next(err) }
 })
 app.get("/orders", async (req, res, next) => {
   try {
-    const orders = await prisma.order.findMany({ take: 100, orderBy: { createdAt: "desc" }, include: { user: { select: { name: true, email: true } }, _count: { select: { items: true } } } })
-    return res.json({ orders: orders.map(({ user, _count, ...order }) => ({ ...order, total: Number(order.total), customer: user, itemCount: _count.items })) })
+    const orderInclude = { user: { select: { name: true, email: true } }, _count: { select: { items: true } } } as const
+    const orders = await prisma.order.findMany({ take: 100, orderBy: { createdAt: "desc" }, include: orderInclude })
+    type OrderWithCustomer = Prisma.OrderGetPayload<{ include: typeof orderInclude }>
+    return res.json({ orders: orders.map(({ user, _count, ...order }: OrderWithCustomer) => ({ ...order, total: Number(order.total), customer: user, itemCount: _count.items })) })
   } catch (err) { next(err) }
 })
 app.patch("/orders/:id/status", async (req, res, next) => {

@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 import express from "express"
 import { z } from "zod"
+import type { Prisma } from "@prisma/client"
 import { prisma } from "../../../packages/database/src/client.js"
 import { requireAuth } from "../../../packages/security/src/index.js"
 
@@ -57,7 +58,7 @@ const amountInKobo = (amount: unknown) => Math.round(Number(amount) * 100)
 
 async function createPaystackOrder(input: z.infer<typeof checkoutSchema>, userId: string, reference: string) {
   const deliveryFee = Number(process.env.DELIVERY_FEE_NGN ?? 0)
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const lines: { productId: string; variantId: string; productName: string; variantLabel: string; unitPrice: number; quantity: number }[] = []
     for (const item of input.items) {
       const product = await tx.product.findFirst({
@@ -96,7 +97,7 @@ async function createPaystackOrder(input: z.infer<typeof checkoutSchema>, userId
 }
 
 async function failPendingOrder(orderId: string) {
-  await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const changed = await tx.order.updateMany({
       where: { id: orderId, paymentMethod: "Paystack", paymentStatus: "PENDING", status: "PENDING" },
       data: { paymentStatus: "FAILED", status: "CANCELLED" },
@@ -185,7 +186,7 @@ async function verifyAndApplyPayment(reference: string, userId?: string) {
   if (transaction.status === "success") {
     if (transaction.currency !== "NGN" || transaction.amount !== amountInKobo(order.total)) throw httpError(409, "Paid amount does not match the order total")
     if (transaction.customer?.email?.toLowerCase() !== order.user.email.toLowerCase()) throw httpError(409, "Payment customer does not match this order")
-    const updated = await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.order.updateMany({
         where: { id: order.id, paymentMethod: "Paystack", paymentStatus: "PENDING", status: "PENDING" },
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
